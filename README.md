@@ -1,16 +1,74 @@
-# React + Vite
+# △ Zenith
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**A personal organization app to manage your entire life in one place.**
 
-Currently, two official plugins are available:
+🔗 **Live App:** [zenith-seven-xi.vercel.app](https://zenith-seven-xi.vercel.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## What is Zenith?
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Zenith is a free, all-in-one personal organization web app. It combines budgeting, task management, subscriptions, journaling, book tracking, study habits, and a wishlist into a single clean interface — accessible from any device.
 
-## Expanding the ESLint configuration
+Sign up, and your data syncs across your phone, tablet, and computer in real time.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Features
+
+**💰 Budget Tracker** — Log income and expenses, set a monthly budget, and see spending breakdowns by category.
+
+**✅ To-Do List** — Create tasks with priority levels (high, medium, low), track completion progress.
+
+**🔄 Subscriptions** — Keep track of recurring payments like Netflix, Spotify, and iCloud. See monthly and yearly totals at a glance.
+
+**📝 Journal** — Daily mood tracking with emoji picker and reflections. See your recent mood history at the top.
+
+**📖 Book Shelf** — Track books you're reading, completed, or want to read. Log chapter-by-chapter progress with a visual progress bar.
+
+**📚 Study Check-in** — Duolingo-style system for Japanese and University Exam prep. Earn 50 XP per check-in, build daily streaks, and unlock milestone badges.
+
+**🎁 Wishlist** — Add items you want to buy. The app calculates XP needed based on the price (¥100 = 10 XP). Items unlock as you earn XP from studying, and you can claim them as rewards.
+
+**🚨 Hard Reset** — Two-step confirmation (click + type "RESET") to wipe all data and start fresh.
+
+---
+
+## Tech Stack
+
+- **React** — Single-file component architecture
+- **Vite** — Fast build tool and dev server
+- **Supabase** — PostgreSQL database with real-time sync and Row Level Security
+- **Vercel** — Deployment and hosting
+- **PWA** — Installable on phone, tablet, and desktop with offline support
+
+---
+
+## Install on Your Phone
+
+Zenith works as a Progressive Web App — it can be installed on your home screen and runs full-screen like a native app.
+
+**iPhone/iPad:** Open in Safari → Share button → "Add to Home Screen"
+
+**Android:** Open in Chrome → tap "Install" banner or menu → "Install app"
+
+**Desktop:** Open in Chrome/Edge → click install icon in address bar
+
+---
+
+## Run Locally
+
+```bash
+git clone https://github.com/yauzim/zenith.git
+cd zenith
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+---
+
+## License
+
+This project is for personal use.
