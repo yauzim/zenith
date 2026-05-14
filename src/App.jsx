@@ -436,17 +436,45 @@ function ProfilePage({ userId, profile, updateProfile, userEmail, onLogout, onRe
     setSaving(false);
   };
 
+  // Compress image to max 512x512 and ~200KB
+  const compressImage = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onload = () => {
+        const max = 512;
+        let w = img.width, h = img.height;
+        if (w > h && w > max) { h = (h / w) * max; w = max; }
+        else if (h > max) { w = (w / h) * max; h = max; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error("Compression failed"));
+          const compressedFile = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+          resolve(compressedFile);
+        }, "image/jpeg", 0.85);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { setError("Please select an image file"); return; }
-    if (file.size > 1024 * 1024) { setError("Image must be under 1MB"); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Image must be under 10MB"); return; }
     setUploading(true); setError(""); setSuccess("");
     try {
-      const url = await db.uploadAvatar(userId, file);
+      const compressed = await compressImage(file);
+      const url = await db.uploadAvatar(userId, compressed);
       await updateProfile({ avatar_url: url });
-      setSuccess("Avatar updated!");
-      setTimeout(() => setSuccess(""), 2000);
+      setSuccess(`Avatar updated! (${Math.round(file.size / 1024)}KB → ${Math.round(compressed.size / 1024)}KB)`);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err) { setError(err.message || "Upload failed"); }
     setUploading(false);
     e.target.value = "";
@@ -491,7 +519,7 @@ function ProfilePage({ userId, profile, updateProfile, userEmail, onLogout, onRe
           {profile.avatar_url && (
             <button onClick={removeAvatar} disabled={uploading} style={{ padding:"10px 20px", borderRadius:10, border:"1px solid var(--border)", background:"transparent", color:"var(--textDim)", fontSize:14, fontWeight:600, cursor:"pointer" }}>Remove</button>
           )}
-          <div style={{ fontSize:12, color:"var(--textDim)", marginTop:10 }}>JPG, PNG or GIF. Max 1MB.</div>
+          <div style={{ fontSize:12, color:"var(--textDim)", marginTop:10 }}>JPG, PNG or GIF. Auto-compressed to 512×512.</div>
         </div>
       </div>
     </div>
