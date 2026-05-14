@@ -666,7 +666,7 @@ export default function App() {
     `}</style>
 
     <nav className="desktop-sidebar" style={{ width:220, minHeight:"100vh", background:"var(--card)", borderRight:"1px solid var(--border)", padding:"24px 12px", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0 }}>
-      <div style={{ padding:"0 10px", marginBottom:32 }}><div style={{ fontSize:20, fontWeight:900, color:"var(--accent)", letterSpacing:-0.5 }}>△ Zenith</div><div style={{ fontSize:11, color:"var(--textDim)", marginTop:2 }}>Organize Everything</div></div>
+      <div onClick={()=>setPage("dashboard")} style={{ padding:"0 10px", marginBottom:32, cursor:"pointer", transition:"opacity 0.15s" }} onMouseEnter={e=>e.currentTarget.style.opacity=0.8} onMouseLeave={e=>e.currentTarget.style.opacity=1}><div style={{ fontSize:20, fontWeight:900, color:"var(--accent)", letterSpacing:-0.5 }}>△ Zenith</div><div style={{ fontSize:11, color:"var(--textDim)", marginTop:2 }}>Organize Everything</div></div>
       <div style={{ display:"flex", flexDirection:"column", gap:2, flex:1 }}>{navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className={`nav-item ${a?"active":""}`} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:10, border:"none", background:a?"var(--accent)":"transparent", color:a?"#0a0f0d":"var(--textDim)", fontSize:13, fontWeight:a?700:500, cursor:"pointer", textAlign:"left" }}><I />{i.label}</button>);})}</div>
       <div style={{ borderTop:"1px solid var(--border)", paddingTop:16, marginTop:8 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"0 6px", cursor:"pointer", borderRadius:10, transition:"background 0.15s" }} onClick={()=>setPage("profile")} onMouseEnter={e=>e.currentTarget.style.background="var(--cardHover)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -680,7 +680,7 @@ export default function App() {
             <div style={{ fontSize:11, color:"var(--textDim)" }}>View profile →</div>
           </div>
         </div>
-        <div style={{ background:"var(--bg)", borderRadius:14, padding:"14px 16px", border:"1px solid var(--border)" }}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}><Icons.Fire /><span style={{ fontSize:14, fontWeight:800, color:"var(--accent)" }}>Lv.{profile.level||1}</span><span style={{ fontSize:12, color:"var(--textDim)" }}>{profile.xp||0} XP</span></div><ProgressBar value={(profile.xp||0)%300||300} max={300} height={5} /></div>
+        <div onClick={()=>setPage("study")} style={{ background:"var(--bg)", borderRadius:14, padding:"14px 16px", border:"1px solid var(--border)", cursor:"pointer", transition:"all 0.15s" }} onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.background="var(--cardHover)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.background="var(--bg)";}}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}><Icons.Fire /><span style={{ fontSize:14, fontWeight:800, color:"var(--accent)" }}>Lv.{profile.level||1}</span><span style={{ fontSize:12, color:"var(--textDim)" }}>{profile.xp||0} XP</span></div><ProgressBar value={(profile.xp||0)%300||300} max={300} height={5} /></div>
       </div>
     </nav>
 
