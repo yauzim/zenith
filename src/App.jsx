@@ -577,6 +577,28 @@ export default function App() {
   const [data, setData] = useState({ expenses:[], todos:[], subscriptions:[], journal:[], books:[], studySessions:[] });
   const [profile, setProfile] = useState({ monthly_budget:100000, xp:0, level:1, streak:0 });
 
+  // Load from cache instantly when user is known
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const cachedData = localStorage.getItem(`zenith_cache_${user.id}`);
+      const cachedProfile = localStorage.getItem(`zenith_profile_${user.id}`);
+      if (cachedData) setData(JSON.parse(cachedData));
+      if (cachedProfile) setProfile(JSON.parse(cachedProfile));
+    } catch {}
+  }, [user]);
+
+  // Save to cache whenever data changes
+  useEffect(() => {
+    if (!user) return;
+    try { localStorage.setItem(`zenith_cache_${user.id}`, JSON.stringify(data)); } catch {}
+  }, [data, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    try { localStorage.setItem(`zenith_profile_${user.id}`, JSON.stringify(profile)); } catch {}
+  }, [profile, user]);
+
   useEffect(()=>{ supabase.auth.getSession().then(({data:{session}})=>{setUser(session?.user||null); setLoading(false);}); const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setUser(s?.user||null); setLoading(false);}); return()=>subscription.unsubscribe(); },[]);
 
   const loadAll = useCallback(async()=>{ if(!user) return; const[expenses,todosRaw,subscriptions,journal,books,studySessions,prof]=await Promise.all([db.getExpenses(user.id),db.getTodos(user.id),db.getSubscriptions(user.id),db.getJournal(user.id),db.getBooks(user.id),db.getStudySessions(user.id),db.getProfile(user.id)]);
@@ -604,8 +626,8 @@ export default function App() {
   useEffect(()=>{loadAll();},[loadAll]);
 
   const updateProfile = async(u)=>{ if(!user) return; await db.updateProfile(user.id,u); setProfile(p=>({...p,...u})); };
-  const handleReset = async()=>{ await db.hardReset(user.id); setProfile({monthly_budget:100000,xp:0,level:1,streak:0}); await loadAll(); };
-  const handleLogout = async()=>{ await supabase.auth.signOut(); setUser(null); };
+  const handleReset = async()=>{ await db.hardReset(user.id); try{localStorage.removeItem(`zenith_cache_${user.id}`); localStorage.removeItem(`zenith_profile_${user.id}`);}catch{} setProfile({monthly_budget:100000,xp:0,level:1,streak:0}); setData({expenses:[],todos:[],subscriptions:[],journal:[],books:[],studySessions:[]}); await loadAll(); };
+  const handleLogout = async()=>{ const uid = user?.id; await supabase.auth.signOut(); if(uid){try{localStorage.removeItem(`zenith_cache_${uid}`); localStorage.removeItem(`zenith_profile_${uid}`);}catch{}} setUser(null); setData({expenses:[],todos:[],subscriptions:[],journal:[],books:[],studySessions:[]}); setProfile({monthly_budget:100000,xp:0,level:1,streak:0}); };
 
   if(loading) return <div style={{ minHeight:"100vh", background:"#0a0f0d", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16 }}><div style={{ fontSize:48, fontWeight:900, color:"#34d399" }}>△</div><div style={{ fontSize:14, color:"#5a7d6a" }}>Loading...</div></div>;
   if(!user) return <AuthScreen />;
