@@ -19,6 +19,8 @@ const Icons = {
   Lock: () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd"/></svg>,
   Unlock: () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M18 1.5c2.9 0 5.25 2.35 5.25 5.25v3.75a.75.75 0 0 1-1.5 0V6.75a3.75 3.75 0 1 0-7.5 0v3a3 3 0 0 1 3 3v6.75a3 3 0 0 1-3 3H3.75a3 3 0 0 1-3-3v-6.75a3 3 0 0 1 3-3h9v-3C12.75 3.85 15.1 1.5 18 1.5Z"/></svg>,
   Reset: () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clipRule="evenodd"/></svg>,
+  User: () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd"/></svg>,
+  Camera: () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clipRule="evenodd"/></svg>,
 };
 
 // ─── XP Calculator: ¥100 = 10 XP needed ───
@@ -54,6 +56,20 @@ const db = {
 
   async getProfile(uid) { const { data } = await supabase.from("profiles").select("*").eq("id", uid).single(); return data; },
   async updateProfile(uid, u) { await supabase.from("profiles").update(u).eq("id", uid); },
+
+  // Avatar upload
+  async uploadAvatar(uid, file) {
+    const ext = file.name.split(".").pop();
+    const path = `${uid}/avatar.${ext}`;
+    // Delete any existing avatars first
+    const { data: list } = await supabase.storage.from("avatars").list(uid);
+    if (list) for (const f of list) await supabase.storage.from("avatars").remove([`${uid}/${f.name}`]);
+    // Upload new one
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    return `${publicUrl}?t=${Date.now()}`;
+  },
 
   // Wishlist (localStorage until you add a Supabase table)
   getWishlist(uid) { try { return JSON.parse(localStorage.getItem(`zenith_wishlist_${uid}`)) || []; } catch { return []; } },
@@ -311,26 +327,26 @@ function BooksPage({ data, userId, refresh }) {
 
 // ─── Study ───
 function StudyPage({ data, userId, refresh, profile, updateProfile }) {
-  const subjects = [{key:"japanese",label:"Japanese",emoji:"🇯🇵",color:"#ef4444",desc:"Daily kanji, grammar & vocabulary"},{key:"uni",label:"University Exam",emoji:"🎓",color:"#0d9488",desc:"Exam prep & review"}];
+  const subjects = [{key:"japanese",label:"Japanese",emoji:"🇯🇵",color:"#ef4444",desc:"Kanji, grammar & vocabulary"},{key:"uni",label:"University Exam",emoji:"🎓",color:"#0d9488",desc:"Exam prep & review"}];
   const sessions = data.studySessions||[]; const totalXP = profile.xp||0;
   const milestones = [{xp:300,label:"Beginner",icon:"🌱"},{xp:900,label:"Consistent",icon:"⚡"},{xp:1500,label:"Dedicated",icon:"🔥"},{xp:3000,label:"Master",icon:"👑"}];
   const checkin = async(key)=>{ const s = sessions.find(x=>x.subject===key); if(!s||s.today_done) return; const wl = [...(Array.isArray(s.week_log)?s.week_log:[false,false,false,false,false,false,false]).slice(1),true]; await db.updateStudySession(s.id,{today_done:true,total_sessions:s.total_sessions+1,streak:s.streak+1,week_log:wl,last_checkin:new Date().toISOString().split("T")[0]}); const nx=totalXP+50; await updateProfile({xp:nx,level:Math.floor(nx/300)+1,streak:Math.max(profile.streak||0,s.streak+1)}); await refresh(); };
   return (<div>
-    <h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:"0 0 4px" }}>Study Check-in</h2><p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 20px" }}>Build your streak & earn XP</p>
-    <div style={{ background:"linear-gradient(135deg,#047857,#059669,#10b981)", borderRadius:20, padding:"26px 28px", marginBottom:24, position:"relative", overflow:"hidden" }}>
-      <div style={{ position:"absolute", top:-20, right:10, fontSize:90, opacity:0.12 }}>🏆</div>
+    <h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:"0 0 4px" }}>Study Check-in</h2><p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 16px" }}>Build your streak & earn XP</p>
+    <div style={{ background:"linear-gradient(135deg,#047857,#059669,#10b981)", borderRadius:14, padding:"16px 20px", marginBottom:16, position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute", top:-10, right:10, fontSize:60, opacity:0.12 }}>🏆</div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", position:"relative" }}>
-        <div><div style={{ fontSize:13, color:"rgba(255,255,255,0.8)", fontWeight:600, textTransform:"uppercase", letterSpacing:1 }}>Your Streak</div><div style={{ display:"flex", alignItems:"center", gap:10, marginTop:4 }}><span style={{ fontSize:42, fontWeight:900, color:"#fff" }}>{profile.streak||0}</span><span style={{ fontSize:18, color:"rgba(255,255,255,0.7)" }}>days</span></div><div style={{ fontSize:13, color:"rgba(255,255,255,0.8)", marginTop:6 }}>{(profile.streak||0)>=7?"🔥 On fire!":(profile.streak||0)>=3?"⚡ Building momentum!":"🌱 Every day counts!"}</div></div>
-        <div style={{ textAlign:"center" }}><div style={{ fontSize:42, marginBottom:4 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.icon||"🌱"}</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", fontWeight:600 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.label||"Novice"}</div></div>
+        <div><div style={{ fontSize:11, color:"rgba(255,255,255,0.8)", fontWeight:600, textTransform:"uppercase", letterSpacing:1 }}>Your Streak</div><div style={{ display:"flex", alignItems:"baseline", gap:6, marginTop:2 }}><span style={{ fontSize:28, fontWeight:900, color:"#fff" }}>{profile.streak||0}</span><span style={{ fontSize:13, color:"rgba(255,255,255,0.7)" }}>days</span></div><div style={{ fontSize:12, color:"rgba(255,255,255,0.85)", marginTop:2 }}>{(profile.streak||0)>=7?"🔥 On fire!":(profile.streak||0)>=3?"⚡ Building momentum!":"🌱 Every day counts!"}</div></div>
+        <div style={{ textAlign:"center" }}><div style={{ fontSize:28, marginBottom:2 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.icon||"🌱"}</div><div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:600 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.label||"Novice"}</div></div>
       </div>
     </div>
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24 }}>{subjects.map(sub=>{const s = sessions.find(x=>x.subject===sub.key)||{streak:0,total_sessions:0,today_done:false,week_log:[false,false,false,false,false,false,false]}; return (<div key={sub.key} style={{ background:"var(--card)", borderRadius:18, padding:24, border:"1px solid var(--border)" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}><span style={{ fontSize:32 }}>{sub.emoji}</span><div><div style={{ fontSize:17, fontWeight:800, color:"var(--text)" }}>{sub.label}</div><div style={{ fontSize:12, color:"var(--textDim)" }}>{sub.desc}</div></div></div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}><div style={{ background:"var(--bg)", borderRadius:10, padding:"10px 14px", border:"1px solid var(--border)" }}><div style={{ fontSize:10, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Streak</div><div style={{ fontSize:22, fontWeight:800, color:sub.color }}>{s.streak}</div></div><div style={{ background:"var(--bg)", borderRadius:10, padding:"10px 14px", border:"1px solid var(--border)" }}><div style={{ fontSize:10, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Total</div><div style={{ fontSize:22, fontWeight:800, color:"var(--text)" }}>{s.total_sessions}</div></div></div>
-      <div style={{ marginBottom:16 }}><div style={{ fontSize:12, fontWeight:600, color:"var(--textDim)", marginBottom:8 }}>This Week</div><StreakDots weekLog={s.week_log} /></div>
-      <button disabled={s.today_done} onClick={()=>checkin(sub.key)} style={{ width:"100%", padding:"14px 0", borderRadius:12, border:"none", background:s.today_done?"var(--cardHover)":sub.color, color:s.today_done?"var(--textDim)":"#fff", fontSize:15, fontWeight:800, cursor:s.today_done?"default":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>{s.today_done?"✓ Completed Today!":<><Icons.Zap /> Check In (+50 XP)</>}</button>
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>{subjects.map(sub=>{const s = sessions.find(x=>x.subject===sub.key)||{streak:0,total_sessions:0,today_done:false,week_log:[false,false,false,false,false,false,false]}; return (<div key={sub.key} style={{ background:"var(--card)", borderRadius:14, padding:18, border:"1px solid var(--border)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}><span style={{ fontSize:24 }}>{sub.emoji}</span><div><div style={{ fontSize:14, fontWeight:800, color:"var(--text)" }}>{sub.label}</div><div style={{ fontSize:11, color:"var(--textDim)" }}>{sub.desc}</div></div></div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}><div style={{ background:"var(--bg)", borderRadius:8, padding:"8px 12px", border:"1px solid var(--border)" }}><div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Streak</div><div style={{ fontSize:18, fontWeight:800, color:sub.color }}>{s.streak}</div></div><div style={{ background:"var(--bg)", borderRadius:8, padding:"8px 12px", border:"1px solid var(--border)" }}><div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Total</div><div style={{ fontSize:18, fontWeight:800, color:"var(--text)" }}>{s.total_sessions}</div></div></div>
+      <div style={{ marginBottom:14 }}><div style={{ fontSize:11, fontWeight:600, color:"var(--textDim)", marginBottom:6 }}>This Week</div><StreakDots weekLog={s.week_log} /></div>
+      <button disabled={s.today_done} onClick={()=>checkin(sub.key)} style={{ width:"100%", padding:"10px 0", borderRadius:10, border:"none", background:s.today_done?"var(--cardHover)":sub.color, color:s.today_done?"var(--textDim)":"#fff", fontSize:13, fontWeight:700, cursor:s.today_done?"default":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>{s.today_done?"✓ Completed Today!":<><Icons.Zap /> Check In (+50 XP)</>}</button>
     </div>);})}</div>
-    <div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}><h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:16 }}>🏆 Milestones</h3><div style={{ display:"flex", gap:12 }}>{milestones.map((m,i)=>{const a=totalXP>=m.xp; return (<div key={i} style={{ flex:1, textAlign:"center", padding:16, borderRadius:14, background:a?"var(--accent)":"var(--bg)", border:"1px solid var(--border)", opacity:a?1:0.5 }}><div style={{ fontSize:32, marginBottom:6 }}>{m.icon}</div><div style={{ fontSize:12, fontWeight:700, color:a?"#fff":"var(--textDim)" }}>{m.label}</div><div style={{ fontSize:10, color:a?"rgba(255,255,255,0.7)":"var(--textDim)", marginTop:2 }}>{m.xp} XP</div></div>);})}</div></div>
+    <div style={{ background:"var(--card)", borderRadius:14, padding:18, border:"1px solid var(--border)" }}><h3 style={{ fontSize:13, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:12 }}>🏆 Milestones</h3><div style={{ display:"flex", gap:8 }}>{milestones.map((m,i)=>{const a=totalXP>=m.xp; return (<div key={i} style={{ flex:1, textAlign:"center", padding:"10px 8px", borderRadius:10, background:a?"var(--accent)":"var(--bg)", border:"1px solid var(--border)", opacity:a?1:0.5 }}><div style={{ fontSize:22, marginBottom:2 }}>{m.icon}</div><div style={{ fontSize:11, fontWeight:700, color:a?"#0a0f0d":"var(--textDim)" }}>{m.label}</div><div style={{ fontSize:9, color:a?"rgba(10,15,13,0.7)":"var(--textDim)", marginTop:1 }}>{m.xp} XP</div></div>);})}</div></div>
   </div>);
 }
 
@@ -399,6 +415,115 @@ function WishlistPage({ userId, profile }) {
   </div>);
 }
 
+// ─── Profile ───
+function ProfilePage({ userId, profile, updateProfile, userEmail, onLogout, onReset }) {
+  const [nickname, setNickname] = useState(profile.nickname || userEmail?.split("@")[0] || "");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+
+  const handleSaveNickname = async () => {
+    if (!nickname.trim()) { setError("Nickname can't be empty"); return; }
+    if (nickname.length > 30) { setError("Nickname must be 30 characters or less"); return; }
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      await updateProfile({ nickname: nickname.trim() });
+      setSuccess("Nickname saved!");
+      setTimeout(() => setSuccess(""), 2000);
+    } catch (e) { setError(e.message); }
+    setSaving(false);
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setError("Please select an image file"); return; }
+    if (file.size > 1024 * 1024) { setError("Image must be under 1MB"); return; }
+    setUploading(true); setError(""); setSuccess("");
+    try {
+      const url = await db.uploadAvatar(userId, file);
+      await updateProfile({ avatar_url: url });
+      setSuccess("Avatar updated!");
+      setTimeout(() => setSuccess(""), 2000);
+    } catch (err) { setError(err.message || "Upload failed"); }
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  const removeAvatar = async () => {
+    setUploading(true); setError(""); setSuccess("");
+    try {
+      await updateProfile({ avatar_url: null });
+      setSuccess("Avatar removed");
+      setTimeout(() => setSuccess(""), 2000);
+    } catch (err) { setError(err.message); }
+    setUploading(false);
+  };
+
+  const displayName = nickname || userEmail?.split("@")[0] || "User";
+  const initial = displayName[0]?.toUpperCase() || "U";
+
+  return (<div>
+    <h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:"0 0 4px" }}>Profile</h2>
+    <p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 24px" }}>Customize your account</p>
+
+    {error && <div style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#ef4444", marginBottom:16 }}>{error}</div>}
+    {success && <div style={{ background:"rgba(52,211,153,0.1)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"var(--accent)", marginBottom:16 }}>✓ {success}</div>}
+
+    <div style={{ background:"var(--card)", borderRadius:16, padding:28, border:"1px solid var(--border)", marginBottom:16 }}>
+      <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:20 }}>Profile Picture</h3>
+      <div style={{ display:"flex", alignItems:"center", gap:24 }}>
+        <div style={{ position:"relative" }}>
+          {profile.avatar_url ? (
+            <img src={profile.avatar_url} alt="avatar" style={{ width:110, height:110, borderRadius:"50%", objectFit:"cover", border:"3px solid var(--accent)" }} />
+          ) : (
+            <div style={{ width:110, height:110, borderRadius:"50%", background:"linear-gradient(135deg, var(--accent), var(--accentAlt))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:44, fontWeight:900, color:"#0a0f0d", border:"3px solid var(--accent)" }}>{initial}</div>
+          )}
+        </div>
+        <div style={{ flex:1 }}>
+          <label style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", borderRadius:10, border:"none", background:"var(--accent)", color:"#0a0f0d", fontSize:14, fontWeight:700, cursor:uploading?"wait":"pointer", marginRight:10, opacity:uploading?0.6:1 }}>
+            <Icons.Camera />
+            {uploading ? "Uploading..." : profile.avatar_url ? "Change Photo" : "Upload Photo"}
+            <input type="file" accept="image/*" onChange={handleUpload} disabled={uploading} style={{ display:"none" }} />
+          </label>
+          {profile.avatar_url && (
+            <button onClick={removeAvatar} disabled={uploading} style={{ padding:"10px 20px", borderRadius:10, border:"1px solid var(--border)", background:"transparent", color:"var(--textDim)", fontSize:14, fontWeight:600, cursor:"pointer" }}>Remove</button>
+          )}
+          <div style={{ fontSize:12, color:"var(--textDim)", marginTop:10 }}>JPG, PNG or GIF. Max 1MB.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style={{ background:"var(--card)", borderRadius:16, padding:28, border:"1px solid var(--border)", marginBottom:16 }}>
+      <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:20 }}>Nickname</h3>
+      <Input label="Display Name" value={nickname} onChange={e=>setNickname(e.target.value)} placeholder="Your nickname" maxLength={30} />
+      <Btn onClick={handleSaveNickname} disabled={saving} style={{ marginTop:4 }}>{saving ? "Saving..." : "Save Nickname"}</Btn>
+    </div>
+
+    <div style={{ background:"var(--card)", borderRadius:16, padding:28, border:"1px solid var(--border)", marginBottom:16 }}>
+      <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:8 }}>Account Info</h3>
+      <p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 12px" }}>Email: <span style={{ color:"var(--text)" }}>{userEmail}</span></p>
+      <p style={{ fontSize:13, color:"var(--textDim)", margin:0 }}>Level <span style={{ color:"var(--accent)", fontWeight:700 }}>{profile.level || 1}</span> · <span style={{ color:"var(--accent)", fontWeight:700 }}>{profile.xp || 0} XP</span> · <span style={{ color:"var(--accent)", fontWeight:700 }}>{profile.streak || 0} day streak</span></p>
+    </div>
+
+    <div style={{ background:"var(--card)", borderRadius:16, padding:28, border:"1px solid var(--border)", marginBottom:16 }}>
+      <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:8 }}>Sign Out</h3>
+      <p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 16px" }}>Sign out of Zenith on this device. Your data stays safe.</p>
+      <button onClick={onLogout} style={{ padding:"10px 20px", borderRadius:10, border:"1px solid var(--border)", background:"var(--cardHover)", color:"var(--text)", fontSize:14, fontWeight:600, cursor:"pointer" }}>Sign Out</button>
+    </div>
+
+    <div style={{ background:"var(--card)", borderRadius:16, padding:28, border:"1px solid rgba(239,68,68,0.3)" }}>
+      <h3 style={{ fontSize:15, fontWeight:700, color:"#ef4444", marginTop:0, marginBottom:8 }}>⚠️ Danger Zone</h3>
+      <p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 16px" }}>This will permanently delete ALL your data: expenses, tasks, subscriptions, journal, books, study progress, XP, streaks, and wishlist.</p>
+      <button onClick={()=>setResetOpen(true)} style={{ padding:"10px 20px", borderRadius:10, border:"1px solid rgba(239,68,68,0.4)", background:"transparent", color:"#ef4444", fontSize:14, fontWeight:700, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:8 }}><Icons.Reset /> Hard Reset</button>
+    </div>
+
+    <HardResetModal open={resetOpen} onClose={()=>setResetOpen(false)} onReset={onReset} />
+  </div>);
+}
+
 // ─── Auth Screen ───
 function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true); const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
@@ -423,7 +548,6 @@ export default function App() {
   const [user, setUser] = useState(null); const [loading, setLoading] = useState(true); const [page, setPage] = useState("dashboard");
   const [data, setData] = useState({ expenses:[], todos:[], subscriptions:[], journal:[], books:[], studySessions:[] });
   const [profile, setProfile] = useState({ monthly_budget:100000, xp:0, level:1, streak:0 });
-  const [resetModal, setResetModal] = useState(false);
 
   useEffect(()=>{ supabase.auth.getSession().then(({data:{session}})=>{setUser(session?.user||null); setLoading(false);}); const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setUser(s?.user||null); setLoading(false);}); return()=>subscription.unsubscribe(); },[]);
 
@@ -458,10 +582,10 @@ export default function App() {
   if(loading) return <div style={{ minHeight:"100vh", background:"#0a0f0d", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16 }}><div style={{ fontSize:48, fontWeight:900, color:"#34d399" }}>△</div><div style={{ fontSize:14, color:"#5a7d6a" }}>Loading...</div></div>;
   if(!user) return <AuthScreen />;
 
-  const navItems = [{key:"dashboard",label:"Home",icon:Icons.Home},{key:"budget",label:"Budget",icon:Icons.Wallet},{key:"todos",label:"Tasks",icon:Icons.Check},{key:"subs",label:"Subs",icon:Icons.Repeat},{key:"journal",label:"Journal",icon:Icons.Pen},{key:"books",label:"Books",icon:Icons.Book},{key:"study",label:"Study",icon:Icons.Study},{key:"wishlist",label:"Wishlist",icon:Icons.Gift}];
+  const navItems = [{key:"dashboard",label:"Home",icon:Icons.Home},{key:"budget",label:"Budget",icon:Icons.Wallet},{key:"todos",label:"Tasks",icon:Icons.Check},{key:"subs",label:"Subs",icon:Icons.Repeat},{key:"journal",label:"Journal",icon:Icons.Pen},{key:"books",label:"Books",icon:Icons.Book},{key:"study",label:"Study",icon:Icons.Study},{key:"wishlist",label:"Wishlist",icon:Icons.Gift},{key:"profile",label:"Profile",icon:Icons.User}];
   const pp = { data, userId:user.id, refresh:loadAll, profile, updateProfile };
-  const pages = { dashboard:<DashboardPage {...pp} />, budget:<BudgetPage {...pp} />, todos:<TodoPage {...pp} />, subs:<SubscriptionsPage {...pp} />, journal:<JournalPage {...pp} />, books:<BooksPage {...pp} />, study:<StudyPage {...pp} />, wishlist:<WishlistPage userId={user.id} profile={profile} /> };
-  const userName = user.email?.split("@")[0]||"User";
+  const pages = { dashboard:<DashboardPage {...pp} />, budget:<BudgetPage {...pp} />, todos:<TodoPage {...pp} />, subs:<SubscriptionsPage {...pp} />, journal:<JournalPage {...pp} />, books:<BooksPage {...pp} />, study:<StudyPage {...pp} />, wishlist:<WishlistPage userId={user.id} profile={profile} />, profile:<ProfilePage userId={user.id} profile={profile} updateProfile={updateProfile} userEmail={user.email} onLogout={handleLogout} onReset={handleReset} /> };
+  const userName = profile.nickname || user.email?.split("@")[0] || "User";
 
   return (<div style={{ "--bg":"#0a0f0d","--card":"#121a16","--cardHover":"#1a2820","--border":"#1e3328","--text":"#e4efe8","--textSoft":"#a8c4b4","--textDim":"#5a7d6a","--accent":"#34d399","--accentAlt":"#10b981","--inputBg":"#0e1511", minHeight:"100vh", background:"var(--bg)", color:"var(--text)", fontFamily:"'DM Sans','Nunito',-apple-system,BlinkMacSystemFont,sans-serif", display:"flex" }}>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -495,9 +619,18 @@ export default function App() {
       <div style={{ padding:"0 10px", marginBottom:32 }}><div style={{ fontSize:20, fontWeight:900, color:"var(--accent)", letterSpacing:-0.5 }}>△ Zenith</div><div style={{ fontSize:11, color:"var(--textDim)", marginTop:2 }}>Organize Everything</div></div>
       <div style={{ display:"flex", flexDirection:"column", gap:2, flex:1 }}>{navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className={`nav-item ${a?"active":""}`} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:10, border:"none", background:a?"var(--accent)":"transparent", color:a?"#0a0f0d":"var(--textDim)", fontSize:13, fontWeight:a?700:500, cursor:"pointer", textAlign:"left" }}><I />{i.label}</button>);})}</div>
       <div style={{ borderTop:"1px solid var(--border)", paddingTop:16, marginTop:8 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"0 6px" }}><div style={{ width:32, height:32, borderRadius:"50%", background:"var(--accent)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"#0a0f0d" }}>{userName[0].toUpperCase()}</div><div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>{userName}</div><button onClick={handleLogout} style={{ background:"none", border:"none", color:"var(--textDim)", fontSize:11, cursor:"pointer", padding:0, fontWeight:500 }}>Sign Out</button></div></div>
-        <div style={{ background:"var(--bg)", borderRadius:14, padding:"14px 16px", border:"1px solid var(--border)", marginBottom:10 }}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}><Icons.Fire /><span style={{ fontSize:14, fontWeight:800, color:"var(--accent)" }}>Lv.{profile.level||1}</span><span style={{ fontSize:12, color:"var(--textDim)" }}>{profile.xp||0} XP</span></div><ProgressBar value={(profile.xp||0)%300||300} max={300} height={5} /></div>
-        <button onClick={()=>setResetModal(true)} style={{ width:"100%", padding:"8px 14px", borderRadius:10, border:"1px solid rgba(239,68,68,0.3)", background:"transparent", color:"#ef4444", fontSize:12, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icons.Reset /> Hard Reset</button>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"0 6px", cursor:"pointer", borderRadius:10, transition:"background 0.15s" }} onClick={()=>setPage("profile")} onMouseEnter={e=>e.currentTarget.style.background="var(--cardHover)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+          {profile.avatar_url ? (
+            <img src={profile.avatar_url} alt="avatar" style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover" }} />
+          ) : (
+            <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--accent)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"#0a0f0d" }}>{userName[0].toUpperCase()}</div>
+          )}
+          <div style={{ flex:1, overflow:"hidden" }}>
+            <div style={{ fontSize:13, fontWeight:700, color:"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{userName}</div>
+            <div style={{ fontSize:11, color:"var(--textDim)" }}>View profile →</div>
+          </div>
+        </div>
+        <div style={{ background:"var(--bg)", borderRadius:14, padding:"14px 16px", border:"1px solid var(--border)" }}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}><Icons.Fire /><span style={{ fontSize:14, fontWeight:800, color:"var(--accent)" }}>Lv.{profile.level||1}</span><span style={{ fontSize:12, color:"var(--textDim)" }}>{profile.xp||0} XP</span></div><ProgressBar value={(profile.xp||0)%300||300} max={300} height={5} /></div>
       </div>
     </nav>
 
@@ -506,7 +639,5 @@ export default function App() {
     <nav className="mobile-bottom-nav" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, background:"var(--card)", borderTop:"1px solid var(--border)", padding:"6px 2px 10px", zIndex:100, justifyContent:"space-around", alignItems:"center", backdropFilter:"blur(20px)" }}>
       {navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className="mobile-nav-item" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"4px 6px", borderRadius:10, border:"none", background:"transparent", color:a?"var(--accent)":"var(--textDim)", fontSize:9, fontWeight:a?700:500, cursor:"pointer", minWidth:40 }}><I />{i.label}</button>);})}
     </nav>
-
-    <HardResetModal open={resetModal} onClose={()=>setResetModal(false)} onReset={handleReset} />
   </div>);
 }
