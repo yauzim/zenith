@@ -684,7 +684,7 @@ export default function App() {
       </div>
     </nav>
 
-    <main className="main-content" style={{ flex:1, padding:"28px 36px", maxWidth:960, minHeight:"100vh" }}>{pages[page]}</main>
+    <main className="main-content" style={{ flex:1, padding:"28px 36px", minHeight:"100vh" }}>{pages[page]}</main>
 
     <nav className="mobile-bottom-nav" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, background:"var(--card)", borderTop:"1px solid var(--border)", padding:"6px 2px 10px", zIndex:100, justifyContent:"space-around", alignItems:"center", backdropFilter:"blur(20px)" }}>
       {navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className="mobile-nav-item" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"4px 6px", borderRadius:10, border:"none", background:"transparent", color:a?"var(--accent)":"var(--textDim)", fontSize:9, fontWeight:a?700:500, cursor:"pointer", minWidth:40 }}><I />{i.label}</button>);})}
