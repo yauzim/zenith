@@ -32,7 +32,7 @@ const db = {
 
   async getTodos(uid) { const { data } = await supabase.from("todos").select("*").eq("user_id", uid).order("created_at", { ascending: false }); return data || []; },
   async addTodo(uid, t) { const { data } = await supabase.from("todos").insert({ user_id: uid, text: t.text, priority: t.priority, done: false }).select().single(); return data; },
-  async toggleTodo(id, done) { await supabase.from("todos").update({ done }).eq("id", id); },
+  async toggleTodo(id, done) { await supabase.from("todos").update({ done, completed_at: done ? new Date().toISOString() : null }).eq("id", id); },
   async deleteTodo(id) { await supabase.from("todos").delete().eq("id", id); },
 
   async getSubscriptions(uid) { const { data } = await supabase.from("subscriptions").select("*").eq("user_id", uid).order("created_at", { ascending: false }); return data || []; },
@@ -427,7 +427,7 @@ export default function App() {
 
   useEffect(()=>{ supabase.auth.getSession().then(({data:{session}})=>{setUser(session?.user||null); setLoading(false);}); const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setUser(s?.user||null); setLoading(false);}); return()=>subscription.unsubscribe(); },[]);
 
-  const loadAll = useCallback(async()=>{ if(!user) return; const[expenses,todos,subscriptions,journal,books,studySessions,prof]=await Promise.all([db.getExpenses(user.id),db.getTodos(user.id),db.getSubscriptions(user.id),db.getJournal(user.id),db.getBooks(user.id),db.getStudySessions(user.id),db.getProfile(user.id)]);
+  const loadAll = useCallback(async()=>{ if(!user) return; const[expenses,todosRaw,subscriptions,journal,books,studySessions,prof]=await Promise.all([db.getExpenses(user.id),db.getTodos(user.id),db.getSubscriptions(user.id),db.getJournal(user.id),db.getBooks(user.id),db.getStudySessions(user.id),db.getProfile(user.id)]);
     // Daily reset: if last_checkin is not today, reset today_done
     const today = new Date().toISOString().split("T")[0];
     for (const s of studySessions) {
@@ -435,6 +435,18 @@ export default function App() {
         await db.updateStudySession(s.id, { today_done: false });
         s.today_done = false;
       }
+    }
+    // Auto-delete completed todos from previous days
+    const todos = [];
+    for (const t of todosRaw) {
+      if (t.done && t.completed_at) {
+        const completedDay = new Date(t.completed_at).toISOString().split("T")[0];
+        if (completedDay !== today) {
+          await db.deleteTodo(t.id);
+          continue; // skip — already deleted
+        }
+      }
+      todos.push(t);
     }
     setData({expenses,todos,subscriptions,journal,books,studySessions}); if(prof) setProfile(prof); },[user]);
   useEffect(()=>{loadAll();},[loadAll]);
