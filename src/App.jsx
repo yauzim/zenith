@@ -465,11 +465,35 @@ export default function App() {
 
   return (<div style={{ "--bg":"#0a0f0d","--card":"#121a16","--cardHover":"#1a2820","--border":"#1e3328","--text":"#e4efe8","--textSoft":"#a8c4b4","--textDim":"#5a7d6a","--accent":"#34d399","--accentAlt":"#10b981","--inputBg":"#0e1511", minHeight:"100vh", background:"var(--bg)", color:"var(--text)", fontFamily:"'DM Sans','Nunito',-apple-system,BlinkMacSystemFont,sans-serif", display:"flex" }}>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <style>{`@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}} *{box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px} input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px rgba(52,211,153,0.15)} button:hover{filter:brightness(1.08)} @media(max-width:768px){.desktop-sidebar{display:none!important}.main-content{padding:16px 14px 90px 14px!important;max-width:100%!important}.mobile-bottom-nav{display:flex!important}} @media(min-width:769px){.mobile-bottom-nav{display:none!important}}`}</style>
+    <style>{`
+      @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      * { box-sizing: border-box; }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; border: 2px solid var(--bg); }
+      ::-webkit-scrollbar-thumb:hover { background: var(--textDim); }
+      html { scrollbar-color: var(--border) var(--bg); scrollbar-width: thin; }
+      input:focus, select:focus, textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(52,211,153,0.15); }
+      .nav-item { transition: all 0.15s ease; position: relative; }
+      .nav-item:not(.active):hover { background: var(--cardHover) !important; color: var(--text) !important; transform: translateX(2px); }
+      .nav-item:not(.active):hover svg { transform: scale(1.1); }
+      .nav-item svg { transition: transform 0.15s ease; }
+      .nav-item.active { box-shadow: 0 4px 12px rgba(52,211,153,0.25); }
+      .mobile-nav-item { transition: all 0.15s ease; }
+      .mobile-nav-item:active { transform: scale(0.92); }
+      @media (max-width: 768px) {
+        .desktop-sidebar { display: none !important; }
+        .main-content { padding: 16px 14px 90px 14px !important; max-width: 100% !important; }
+        .mobile-bottom-nav { display: flex !important; }
+      }
+      @media (min-width: 769px) {
+        .mobile-bottom-nav { display: none !important; }
+      }
+    `}</style>
 
     <nav className="desktop-sidebar" style={{ width:220, minHeight:"100vh", background:"var(--card)", borderRight:"1px solid var(--border)", padding:"24px 12px", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0 }}>
       <div style={{ padding:"0 10px", marginBottom:32 }}><div style={{ fontSize:20, fontWeight:900, color:"var(--accent)", letterSpacing:-0.5 }}>△ Zenith</div><div style={{ fontSize:11, color:"var(--textDim)", marginTop:2 }}>Organize Everything</div></div>
-      <div style={{ display:"flex", flexDirection:"column", gap:2, flex:1 }}>{navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:12, border:"none", background:a?"var(--accent)":"transparent", color:a?"#0a0f0d":"var(--textDim)", fontSize:14, fontWeight:a?700:500, cursor:"pointer", transition:"all 0.2s", textAlign:"left" }}><I />{i.label}</button>);})}</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:2, flex:1 }}>{navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className={`nav-item ${a?"active":""}`} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:12, border:"none", background:a?"var(--accent)":"transparent", color:a?"#0a0f0d":"var(--textDim)", fontSize:14, fontWeight:a?700:500, cursor:"pointer", textAlign:"left" }}><I />{i.label}</button>);})}</div>
       <div style={{ borderTop:"1px solid var(--border)", paddingTop:16, marginTop:8 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"0 6px" }}><div style={{ width:32, height:32, borderRadius:"50%", background:"var(--accent)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"#0a0f0d" }}>{userName[0].toUpperCase()}</div><div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>{userName}</div><button onClick={handleLogout} style={{ background:"none", border:"none", color:"var(--textDim)", fontSize:11, cursor:"pointer", padding:0, fontWeight:500 }}>Sign Out</button></div></div>
         <div style={{ background:"var(--bg)", borderRadius:14, padding:"14px 16px", border:"1px solid var(--border)", marginBottom:10 }}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}><Icons.Fire /><span style={{ fontSize:14, fontWeight:800, color:"var(--accent)" }}>Lv.{profile.level||1}</span><span style={{ fontSize:12, color:"var(--textDim)" }}>{profile.xp||0} XP</span></div><ProgressBar value={(profile.xp||0)%300||300} max={300} height={5} /></div>
@@ -480,7 +504,7 @@ export default function App() {
     <main className="main-content" style={{ flex:1, padding:"28px 36px", maxWidth:960, minHeight:"100vh" }}>{pages[page]}</main>
 
     <nav className="mobile-bottom-nav" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, background:"var(--card)", borderTop:"1px solid var(--border)", padding:"6px 2px 10px", zIndex:100, justifyContent:"space-around", alignItems:"center", backdropFilter:"blur(20px)" }}>
-      {navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"4px 6px", borderRadius:10, border:"none", background:"transparent", color:a?"var(--accent)":"var(--textDim)", fontSize:9, fontWeight:a?700:500, cursor:"pointer", minWidth:40 }}><I />{i.label}</button>);})}
+      {navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className="mobile-nav-item" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"4px 6px", borderRadius:10, border:"none", background:"transparent", color:a?"var(--accent)":"var(--textDim)", fontSize:9, fontWeight:a?700:500, cursor:"pointer", minWidth:40 }}><I />{i.label}</button>);})}
     </nav>
 
     <HardResetModal open={resetModal} onClose={()=>setResetModal(false)} onReset={handleReset} />
