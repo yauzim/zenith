@@ -185,7 +185,7 @@ function DashboardPage({ data, profile }) {
   ];
   return (<div>
     <div style={{ background:"linear-gradient(135deg,#059669,#10b981,#34d399)", borderRadius:20, padding:"24px 28px", marginBottom:24, position:"relative", overflow:"hidden" }}>
-      <div style={{ position:"absolute", top:-30, right:-20, fontSize:100, opacity:0.1 }}>🔥</div>
+      <div className="deco-emoji" style={{ position:"absolute", top:-30, right:-20, fontSize:100, opacity:0.1 }}>🔥</div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, position:"relative" }}>
         <div><div style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.8)", textTransform:"uppercase", letterSpacing:1 }}>Level {profile.level||1}</div><div style={{ fontSize:28, fontWeight:800, color:"#fff" }}>{profile.xp||0} XP</div></div>
         <div style={{ textAlign:"right" }}><div style={{ display:"flex", alignItems:"center", gap:6, color:"#fff" }}><Icons.Fire /><span style={{ fontSize:24, fontWeight:800 }}>{profile.streak||0}</span></div><div style={{ fontSize:12, color:"rgba(255,255,255,0.8)" }}>day streak</div></div>
@@ -194,7 +194,7 @@ function DashboardPage({ data, profile }) {
       <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", marginTop:6, textAlign:"right" }}>{xpIn}/300 XP to Level {(profile.level||1)+1}</div>
     </div>
     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>{cards.map((c,i)=>(<div key={i} style={{ background:"var(--card)", borderRadius:16, padding:"20px 18px", border:"1px solid var(--border)" }}><div style={{ display:"flex", justifyContent:"space-between" }}><div><div style={{ fontSize:12, fontWeight:600, color:"var(--textDim)", textTransform:"uppercase" }}>{c.label}</div><div style={{ fontSize:22, fontWeight:800, color:"var(--text)", marginTop:4 }}>{c.value}</div><div style={{ fontSize:12, color:c.color, fontWeight:600, marginTop:4 }}>{c.sub}</div></div><span style={{ fontSize:28 }}>{c.icon}</span></div></div>))}</div>
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+    <div className="grid-2-mobile-1" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
       <div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}>
         <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginBottom:16 }}>📚 Study Progress</h3>
         {(data.studySessions||[]).map(s=>(<div key={s.id} style={{ marginBottom:14 }}><div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}><span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>{s.emoji || "📚"} {s.label || s.subject}</span><span style={{ fontSize:12, color:s.today_done?"#10b981":"var(--textDim)", fontWeight:600 }}>{s.today_done?"✓ Done":"Pending"}</span></div><StreakDots weekLog={s.week_log} /></div>))}
@@ -222,7 +222,7 @@ function BudgetPage({ data, userId, refresh, profile, updateProfile }) {
   const handleAdd = async()=>{ if(!form.name||!form.amount) return; setSaving(true); await db.addExpense(userId,{...form,amount:parseInt(form.amount)}); await refresh(); setForm({name:"",amount:"",category:"Food",type:"expense",date:new Date().toISOString().split("T")[0]}); setModal(false); setSaving(false); };
   return (<div>
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}><div><h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:0 }}>Budget</h2><p style={{ fontSize:13, color:"var(--textDim)", margin:"4px 0 0" }}>Track daily & monthly expenses</p></div><Btn onClick={()=>setModal(true)}><Icons.Plus /> Add Entry</Btn></div>
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:24 }}>
+    <div className="responsive-grid-3" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:24 }}>
       <div style={{ background:"var(--card)", borderRadius:16, padding:20, border:"1px solid var(--border)" }}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Income</div><div style={{ fontSize:26, fontWeight:800, color:"#22c55e", marginTop:4 }}>¥{totalInc.toLocaleString()}</div></div>
       <div style={{ background:"var(--card)", borderRadius:16, padding:20, border:"1px solid var(--border)" }}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Expenses</div><div style={{ fontSize:26, fontWeight:800, color:"#f59e0b", marginTop:4 }}>¥{totalExp.toLocaleString()}</div></div>
       <div style={{ background:"var(--card)", borderRadius:16, padding:20, border:"1px solid var(--border)", cursor:"pointer" }} onClick={()=>setBudgetEdit(true)}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Remaining</div><div style={{ fontSize:26, fontWeight:800, color:rem>=0?"#10b981":"#ef4444", marginTop:4 }}>¥{rem.toLocaleString()}</div><ProgressBar value={totalExp} max={budget} color={rem>=0?"#10b981":"#ef4444"} /></div>
@@ -271,7 +271,7 @@ function SubscriptionsPage({ data, userId, refresh }) {
   const handleAdd = async()=>{ if(!form.name||!form.amount) return; setSaving(true); await db.addSubscription(userId,{...form,amount:parseInt(form.amount)}); await refresh(); setForm({name:"",amount:"",cycle:"monthly",nextDate:"",color:"#34d399"}); setModal(false); setSaving(false); };
   return (<div>
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}><div><h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:0 }}>Subscriptions</h2><p style={{ fontSize:13, color:"var(--textDim)", margin:"4px 0 0" }}>Manage recurring payments</p></div><Btn onClick={()=>setModal(true)}><Icons.Plus /> Add Sub</Btn></div>
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:24 }}><div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Monthly Total</div><div style={{ fontSize:28, fontWeight:800, color:"var(--text)", marginTop:4 }}>¥{totalMonthly.toLocaleString()}</div></div><div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Yearly Estimate</div><div style={{ fontSize:28, fontWeight:800, color:"var(--text)", marginTop:4 }}>¥{(totalMonthly*12).toLocaleString()}</div></div></div>
+    <div className="grid-2-mobile-1" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:24 }}><div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Monthly Total</div><div style={{ fontSize:28, fontWeight:800, color:"var(--text)", marginTop:4 }}>¥{totalMonthly.toLocaleString()}</div></div><div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}><div style={{ fontSize:12, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Yearly Estimate</div><div style={{ fontSize:28, fontWeight:800, color:"var(--text)", marginTop:4 }}>¥{(totalMonthly*12).toLocaleString()}</div></div></div>
     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>{subs.map(s=>(<div key={s.id} style={{ background:"var(--card)", borderRadius:16, padding:"18px 22px", border:"1px solid var(--border)", display:"flex", alignItems:"center", gap:16, opacity:s.active?1:0.45 }}>
       <div style={{ width:42, height:42, borderRadius:12, background:s.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:800, color:"#fff" }}>{s.name[0]}</div>
       <div style={{ flex:1 }}><div style={{ fontSize:15, fontWeight:700, color:"var(--text)" }}>{s.name}</div><div style={{ fontSize:12, color:"var(--textDim)" }}>{s.cycle} · next: {s.next_date||"—"}</div></div>
@@ -466,7 +466,7 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
 
     {/* Streak banner */}
     <div style={{ background:"linear-gradient(135deg,#047857,#059669,#10b981)", borderRadius:14, padding:"16px 20px", marginBottom:16, position:"relative", overflow:"hidden" }}>
-      <div style={{ position:"absolute", top:-10, right:10, fontSize:60, opacity:0.12 }}>🏆</div>
+      <div className="deco-emoji" style={{ position:"absolute", top:-10, right:10, fontSize:60, opacity:0.12 }}>🏆</div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", position:"relative" }}>
         <div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.8)", fontWeight:600, textTransform:"uppercase", letterSpacing:1 }}>Your Streak</div>
@@ -485,7 +485,7 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
 
     {/* Subjects list - tabs */}
     {sessions.length > 0 && (
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+      <div className="subject-tabs" style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
         {sessions.map(s => {
           const isActive = selected?.id === s.id;
           return (
@@ -536,7 +536,7 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
           </div>
 
           {/* Stats grid */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10, marginBottom:18 }}>
+          <div className="stats-grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10, marginBottom:18 }}>
             <div style={{ background:"var(--bg)", borderRadius:10, padding:"12px 14px", border:"1px solid var(--border)" }}>
               <div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase", letterSpacing:0.5 }}>Streak</div>
               <div style={{ fontSize:22, fontWeight:800, color:subjColor }}>{selected.streak || 0}</div>
@@ -935,6 +935,18 @@ export default function App() {
         .main-content { padding: 70px 16px 24px 16px !important; max-width: 100% !important; }
         .mobile-header { display: flex !important; }
         .mobile-drawer-overlay { display: block; }
+        /* Stack 2-column grids on mobile */
+        .grid-2-mobile-1 { grid-template-columns: 1fr !important; }
+        /* Hide decorative big background emojis on mobile */
+        .deco-emoji { display: none !important; }
+        /* Reduce huge text sizes on mobile */
+        .responsive-grid-3 { grid-template-columns: 1fr 1fr !important; }
+        /* Subject tabs scroll horizontally */
+        .subject-tabs { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 4px; }
+        /* Stats grid: 4 cols → 2 cols on mobile */
+        .stats-grid-4 { grid-template-columns: 1fr 1fr !important; }
+        /* Bigger touch targets */
+        button { min-height: 36px; }
       }
       @media (min-width: 769px) {
         .mobile-header { display: none !important; }
