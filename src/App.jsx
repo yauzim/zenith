@@ -359,8 +359,9 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
   const sessions = data.studySessions || [];
   const totalXP = profile.xp || 0;
   const [selected, setSelected] = useState(null);
-  const [addModal, setAddModal] = useState(false);
-  const [newSubj, setNewSubj] = useState({ label: "", emoji: "📚", color: "#34d399", description: "" });
+  const [subjModal, setSubjModal] = useState(false);
+  const [editing, setEditing] = useState(null); // null = add mode, otherwise the subject being edited
+  const [subjForm, setSubjForm] = useState({ label: "", emoji: "📚", color: "#34d399", description: "" });
   const c = useConfirm();
 
   const milestones = [
@@ -388,12 +389,36 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
     await refresh();
   };
 
-  const handleAddSubject = async () => {
-    if (!newSubj.label.trim()) return;
-    const subjectKey = newSubj.label.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now();
-    await db.addStudySubject(userId, { ...newSubj, subject: subjectKey });
-    setNewSubj({ label: "", emoji: "📚", color: "#34d399", description: "" });
-    setAddModal(false);
+  const openAddSubject = () => {
+    setEditing(null);
+    setSubjForm({ label: "", emoji: "📚", color: "#34d399", description: "" });
+    setSubjModal(true);
+  };
+
+  const openEditSubject = (s) => {
+    setEditing(s);
+    setSubjForm({ label: s.label || s.subject, emoji: s.emoji || "📚", color: s.color || "#34d399", description: s.description || "" });
+    setSubjModal(true);
+  };
+
+  const handleSaveSubject = async () => {
+    if (!subjForm.label.trim()) return;
+    if (editing) {
+      // Edit existing
+      await db.updateStudySession(editing.id, {
+        label: subjForm.label.trim(),
+        emoji: subjForm.emoji,
+        color: subjForm.color,
+        description: subjForm.description,
+      });
+    } else {
+      // Add new
+      const subjectKey = subjForm.label.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now();
+      await db.addStudySubject(userId, { ...subjForm, subject: subjectKey });
+    }
+    setSubjForm({ label: "", emoji: "📚", color: "#34d399", description: "" });
+    setEditing(null);
+    setSubjModal(false);
     await refresh();
   };
 
@@ -435,7 +460,7 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
         <h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:"0 0 4px" }}>Study Check-in</h2>
         <p style={{ fontSize:13, color:"var(--textDim)", margin:0 }}>Build your streak & earn XP</p>
       </div>
-      <Btn onClick={()=>setAddModal(true)}><Icons.Plus /> Add Subject</Btn>
+      <Btn onClick={openAddSubject}><Icons.Plus /> Add Subject</Btn>
     </div>
 
     {/* Streak banner */}
@@ -483,7 +508,7 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
         <div style={{ fontSize:42, marginBottom:10 }}>📚</div>
         <div style={{ fontSize:15, color:"var(--text)", fontWeight:700, marginBottom:6 }}>No subjects yet</div>
         <p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 16px" }}>Add a study subject to start tracking your progress</p>
-        <Btn onClick={()=>setAddModal(true)}><Icons.Plus /> Add Your First Subject</Btn>
+        <Btn onClick={openAddSubject}><Icons.Plus /> Add Your First Subject</Btn>
       </div>
     )}
 
@@ -501,7 +526,12 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
                 <div style={{ fontSize:12, color:"var(--textDim)" }}>{selected.description || "—"}</div>
               </div>
             </div>
-            <DelBtn onClick={()=>handleDeleteSubject(selected)} />
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <button onClick={()=>openEditSubject(selected)} style={{ background:"var(--cardHover)", border:"1px solid var(--border)", color:"var(--textDim)", cursor:"pointer", padding:"6px 10px", borderRadius:8, fontSize:12, fontWeight:600, display:"flex", alignItems:"center", gap:4, transition:"all 0.15s" }} onMouseEnter={e=>{e.currentTarget.style.color="var(--text)"; e.currentTarget.style.borderColor="var(--accent)";}} onMouseLeave={e=>{e.currentTarget.style.color="var(--textDim)"; e.currentTarget.style.borderColor="var(--border)";}}>
+                <Icons.Pen /> Edit
+              </button>
+              <DelBtn onClick={()=>handleDeleteSubject(selected)} />
+            </div>
           </div>
 
           {/* Stats grid */}
@@ -573,19 +603,19 @@ function StudyPage({ data, userId, refresh, profile, updateProfile }) {
     </div>
 
     {/* Add subject modal */}
-    <Modal open={addModal} onClose={()=>setAddModal(false)} title="Add Study Subject">
-      <Input label="Subject Name" value={newSubj.label} onChange={e=>setNewSubj({...newSubj, label:e.target.value})} placeholder="e.g. Coding, Spanish, Math" />
-      <Input label="Description (optional)" value={newSubj.description} onChange={e=>setNewSubj({...newSubj, description:e.target.value})} placeholder="What will you study?" />
+    <Modal open={subjModal} onClose={()=>{setSubjModal(false); setEditing(null);}} title={editing ? "Edit Subject" : "Add Study Subject"}>
+      <Input label="Subject Name" value={subjForm.label} onChange={e=>setSubjForm({...subjForm, label:e.target.value})} placeholder="e.g. Coding, Spanish, Math" />
+      <Input label="Description (optional)" value={subjForm.description} onChange={e=>setSubjForm({...subjForm, description:e.target.value})} placeholder="What will you study?" />
       <div style={{ marginBottom:14 }}>
         <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--textDim)", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Icon</label>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {["📚","💻","🎨","🎵","🏃","🧘","🔬","📐","🇯🇵","🇪🇸","🇫🇷","🇩🇪","🎓","✍️","📖","🧠"].map(e => (
-            <button key={e} onClick={()=>setNewSubj({...newSubj, emoji:e})} style={{ fontSize:24, padding:6, border:newSubj.emoji===e?"2px solid var(--accent)":"2px solid transparent", borderRadius:8, background:newSubj.emoji===e?"var(--cardHover)":"transparent", cursor:"pointer" }}>{e}</button>
+            <button key={e} onClick={()=>setSubjForm({...subjForm, emoji:e})} style={{ fontSize:24, padding:6, border:subjForm.emoji===e?"2px solid var(--accent)":"2px solid transparent", borderRadius:8, background:subjForm.emoji===e?"var(--cardHover)":"transparent", cursor:"pointer" }}>{e}</button>
           ))}
         </div>
       </div>
-      <Input label="Color" type="color" value={newSubj.color} onChange={e=>setNewSubj({...newSubj, color:e.target.value})} />
-      <Btn onClick={handleAddSubject} style={{ width:"100%", justifyContent:"center", marginTop:8 }}>Add Subject</Btn>
+      <Input label="Color" type="color" value={subjForm.color} onChange={e=>setSubjForm({...subjForm, color:e.target.value})} />
+      <Btn onClick={handleSaveSubject} style={{ width:"100%", justifyContent:"center", marginTop:8 }}>{editing ? "Save Changes" : "Add Subject"}</Btn>
     </Modal>
 
     <ConfirmDialog open={c.open} title={c.title} message={c.msg} onConfirm={c.exec} onCancel={c.cancel} />
