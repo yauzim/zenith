@@ -53,6 +53,8 @@ const db = {
 
   async getStudySessions(uid) { const { data } = await supabase.from("study_sessions").select("*").eq("user_id", uid); return data || []; },
   async updateStudySession(id, u) { await supabase.from("study_sessions").update(u).eq("id", id); },
+  async addStudySubject(uid, s) { const { data } = await supabase.from("study_sessions").insert({ user_id: uid, subject: s.subject, label: s.label, emoji: s.emoji, color: s.color, description: s.description, streak: 0, total_sessions: 0, today_done: false, week_log: [false,false,false,false,false,false,false], checkin_history: [] }).select().single(); return data; },
+  async deleteStudySubject(id) { await supabase.from("study_sessions").delete().eq("id", id); },
 
   async getProfile(uid) { const { data } = await supabase.from("profiles").select("*").eq("id", uid).single(); return data; },
   async updateProfile(uid, u) { await supabase.from("profiles").update(u).eq("id", uid); },
@@ -194,7 +196,7 @@ function DashboardPage({ data, profile }) {
     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
       <div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}>
         <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginBottom:16 }}>📚 Study Progress</h3>
-        {(data.studySessions||[]).map(s=>(<div key={s.id} style={{ marginBottom:14 }}><div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}><span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>{s.subject==="japanese"?"🇯🇵 Japanese":"🎓 Uni Exam"}</span><span style={{ fontSize:12, color:s.today_done?"#10b981":"var(--textDim)", fontWeight:600 }}>{s.today_done?"✓ Done":"Pending"}</span></div><StreakDots weekLog={s.week_log} /></div>))}
+        {(data.studySessions||[]).map(s=>(<div key={s.id} style={{ marginBottom:14 }}><div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}><span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>{s.emoji || "📚"} {s.label || s.subject}</span><span style={{ fontSize:12, color:s.today_done?"#10b981":"var(--textDim)", fontWeight:600 }}>{s.today_done?"✓ Done":"Pending"}</span></div><StreakDots weekLog={s.week_log} /></div>))}
       </div>
       <div style={{ background:"var(--card)", borderRadius:16, padding:22, border:"1px solid var(--border)" }}>
         <h3 style={{ fontSize:15, fontWeight:700, color:"var(--text)", marginBottom:16 }}>📖 Currently Reading</h3>
@@ -326,27 +328,267 @@ function BooksPage({ data, userId, refresh }) {
 }
 
 // ─── Study ───
+function Heatmap({ history, color }) {
+  // Show last 70 days (10 weeks) as a GitHub-style grid
+  const days = 70;
+  const today = new Date();
+  const cells = [];
+  const set = new Set(history || []);
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    cells.push({ date: dateStr, done: set.has(dateStr) });
+  }
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 3, maxWidth: 280 }}>
+      {cells.map((c, i) => (
+        <div key={i} title={`${c.date}${c.done ? " ✓" : ""}`} style={{
+          width: "100%", aspectRatio: "1/1", borderRadius: 3,
+          background: c.done ? color : "var(--border)",
+          opacity: c.done ? 1 : 0.4,
+          transition: "transform 0.15s",
+          cursor: "pointer",
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function StudyPage({ data, userId, refresh, profile, updateProfile }) {
-  const subjects = [{key:"japanese",label:"Japanese",emoji:"🇯🇵",color:"#ef4444",desc:"Kanji, grammar & vocabulary"},{key:"uni",label:"University Exam",emoji:"🎓",color:"#0d9488",desc:"Exam prep & review"}];
-  const sessions = data.studySessions||[]; const totalXP = profile.xp||0;
-  const milestones = [{xp:300,label:"Beginner",icon:"🌱"},{xp:900,label:"Consistent",icon:"⚡"},{xp:1500,label:"Dedicated",icon:"🔥"},{xp:3000,label:"Master",icon:"👑"}];
-  const checkin = async(key)=>{ const s = sessions.find(x=>x.subject===key); if(!s||s.today_done) return; const wl = [...(Array.isArray(s.week_log)?s.week_log:[false,false,false,false,false,false,false]).slice(1),true]; await db.updateStudySession(s.id,{today_done:true,total_sessions:s.total_sessions+1,streak:s.streak+1,week_log:wl,last_checkin:new Date().toISOString().split("T")[0]}); const nx=totalXP+50; await updateProfile({xp:nx,level:Math.floor(nx/300)+1,streak:Math.max(profile.streak||0,s.streak+1)}); await refresh(); };
+  const sessions = data.studySessions || [];
+  const totalXP = profile.xp || 0;
+  const [selected, setSelected] = useState(null);
+  const [addModal, setAddModal] = useState(false);
+  const [newSubj, setNewSubj] = useState({ label: "", emoji: "📚", color: "#34d399", description: "" });
+  const c = useConfirm();
+
+  const milestones = [
+    { xp: 300, label: "Beginner", icon: "🌱" },
+    { xp: 900, label: "Consistent", icon: "⚡" },
+    { xp: 1500, label: "Dedicated", icon: "🔥" },
+    { xp: 3000, label: "Master", icon: "👑" },
+  ];
+
+  const checkin = async (s) => {
+    if (s.today_done) return;
+    const today = new Date().toISOString().split("T")[0];
+    const wl = [...(Array.isArray(s.week_log) ? s.week_log : [false,false,false,false,false,false,false]).slice(1), true];
+    const history = [...(Array.isArray(s.checkin_history) ? s.checkin_history : []), today];
+    await db.updateStudySession(s.id, {
+      today_done: true,
+      total_sessions: s.total_sessions + 1,
+      streak: s.streak + 1,
+      week_log: wl,
+      last_checkin: today,
+      checkin_history: history,
+    });
+    const nx = totalXP + 50;
+    await updateProfile({ xp: nx, level: Math.floor(nx / 300) + 1, streak: Math.max(profile.streak || 0, s.streak + 1) });
+    await refresh();
+  };
+
+  const handleAddSubject = async () => {
+    if (!newSubj.label.trim()) return;
+    const subjectKey = newSubj.label.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now();
+    await db.addStudySubject(userId, { ...newSubj, subject: subjectKey });
+    setNewSubj({ label: "", emoji: "📚", color: "#34d399", description: "" });
+    setAddModal(false);
+    await refresh();
+  };
+
+  const handleDeleteSubject = (s) => {
+    c.ask("Delete subject?", `Remove "${s.label || s.subject}"? Your streak and history for this subject will be lost.`, async () => {
+      await db.deleteStudySubject(s.id);
+      if (selected?.id === s.id) setSelected(null);
+      await refresh();
+    });
+  };
+
+  // Detailed stats for the selected subject
+  const stats = (s) => {
+    const history = Array.isArray(s.checkin_history) ? s.checkin_history : [];
+    const total = s.total_sessions || 0;
+    const last30 = history.filter(d => {
+      const diff = (new Date() - new Date(d)) / (1000 * 60 * 60 * 24);
+      return diff <= 30;
+    }).length;
+    const last7 = history.filter(d => {
+      const diff = (new Date() - new Date(d)) / (1000 * 60 * 60 * 24);
+      return diff <= 7;
+    }).length;
+    return { last7, last30, totalXp: total * 50, total };
+  };
+
+  // Auto-select first subject if none selected
+  useEffect(() => {
+    if (!selected && sessions.length > 0) setSelected(sessions[0]);
+    if (selected) {
+      const fresh = sessions.find(x => x.id === selected.id);
+      if (fresh && fresh !== selected) setSelected(fresh);
+    }
+  }, [sessions]);
+
   return (<div>
-    <h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:"0 0 4px" }}>Study Check-in</h2><p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 16px" }}>Build your streak & earn XP</p>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+      <div>
+        <h2 style={{ fontSize:22, fontWeight:800, color:"var(--text)", margin:"0 0 4px" }}>Study Check-in</h2>
+        <p style={{ fontSize:13, color:"var(--textDim)", margin:0 }}>Build your streak & earn XP</p>
+      </div>
+      <Btn onClick={()=>setAddModal(true)}><Icons.Plus /> Add Subject</Btn>
+    </div>
+
+    {/* Streak banner */}
     <div style={{ background:"linear-gradient(135deg,#047857,#059669,#10b981)", borderRadius:14, padding:"16px 20px", marginBottom:16, position:"relative", overflow:"hidden" }}>
       <div style={{ position:"absolute", top:-10, right:10, fontSize:60, opacity:0.12 }}>🏆</div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", position:"relative" }}>
-        <div><div style={{ fontSize:11, color:"rgba(255,255,255,0.8)", fontWeight:600, textTransform:"uppercase", letterSpacing:1 }}>Your Streak</div><div style={{ display:"flex", alignItems:"baseline", gap:6, marginTop:2 }}><span style={{ fontSize:28, fontWeight:900, color:"#fff" }}>{profile.streak||0}</span><span style={{ fontSize:13, color:"rgba(255,255,255,0.7)" }}>days</span></div><div style={{ fontSize:12, color:"rgba(255,255,255,0.85)", marginTop:2 }}>{(profile.streak||0)>=7?"🔥 On fire!":(profile.streak||0)>=3?"⚡ Building momentum!":"🌱 Every day counts!"}</div></div>
-        <div style={{ textAlign:"center" }}><div style={{ fontSize:28, marginBottom:2 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.icon||"🌱"}</div><div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:600 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.label||"Novice"}</div></div>
+        <div>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.8)", fontWeight:600, textTransform:"uppercase", letterSpacing:1 }}>Your Streak</div>
+          <div style={{ display:"flex", alignItems:"baseline", gap:6, marginTop:2 }}>
+            <span style={{ fontSize:28, fontWeight:900, color:"#fff" }}>{profile.streak||0}</span>
+            <span style={{ fontSize:13, color:"rgba(255,255,255,0.7)" }}>days</span>
+          </div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.85)", marginTop:2 }}>{(profile.streak||0)>=7?"🔥 On fire!":(profile.streak||0)>=3?"⚡ Building momentum!":"🌱 Every day counts!"}</div>
+        </div>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:28, marginBottom:2 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.icon||"🌱"}</div>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:600 }}>{milestones.filter(m=>totalXP>=m.xp).pop()?.label||"Novice"}</div>
+        </div>
       </div>
     </div>
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>{subjects.map(sub=>{const s = sessions.find(x=>x.subject===sub.key)||{streak:0,total_sessions:0,today_done:false,week_log:[false,false,false,false,false,false,false]}; return (<div key={sub.key} style={{ background:"var(--card)", borderRadius:14, padding:18, border:"1px solid var(--border)" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}><span style={{ fontSize:24 }}>{sub.emoji}</span><div><div style={{ fontSize:14, fontWeight:800, color:"var(--text)" }}>{sub.label}</div><div style={{ fontSize:11, color:"var(--textDim)" }}>{sub.desc}</div></div></div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}><div style={{ background:"var(--bg)", borderRadius:8, padding:"8px 12px", border:"1px solid var(--border)" }}><div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Streak</div><div style={{ fontSize:18, fontWeight:800, color:sub.color }}>{s.streak}</div></div><div style={{ background:"var(--bg)", borderRadius:8, padding:"8px 12px", border:"1px solid var(--border)" }}><div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase" }}>Total</div><div style={{ fontSize:18, fontWeight:800, color:"var(--text)" }}>{s.total_sessions}</div></div></div>
-      <div style={{ marginBottom:14 }}><div style={{ fontSize:11, fontWeight:600, color:"var(--textDim)", marginBottom:6 }}>This Week</div><StreakDots weekLog={s.week_log} /></div>
-      <button disabled={s.today_done} onClick={()=>checkin(sub.key)} style={{ width:"100%", padding:"10px 0", borderRadius:10, border:"none", background:s.today_done?"var(--cardHover)":sub.color, color:s.today_done?"var(--textDim)":"#fff", fontSize:13, fontWeight:700, cursor:s.today_done?"default":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>{s.today_done?"✓ Completed Today!":<><Icons.Zap /> Check In (+50 XP)</>}</button>
-    </div>);})}</div>
-    <div style={{ background:"var(--card)", borderRadius:14, padding:18, border:"1px solid var(--border)" }}><h3 style={{ fontSize:13, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:12 }}>🏆 Milestones</h3><div style={{ display:"flex", gap:8 }}>{milestones.map((m,i)=>{const a=totalXP>=m.xp; return (<div key={i} style={{ flex:1, textAlign:"center", padding:"10px 8px", borderRadius:10, background:a?"var(--accent)":"var(--bg)", border:"1px solid var(--border)", opacity:a?1:0.5 }}><div style={{ fontSize:22, marginBottom:2 }}>{m.icon}</div><div style={{ fontSize:11, fontWeight:700, color:a?"#0a0f0d":"var(--textDim)" }}>{m.label}</div><div style={{ fontSize:9, color:a?"rgba(10,15,13,0.7)":"var(--textDim)", marginTop:1 }}>{m.xp} XP</div></div>);})}</div></div>
+
+    {/* Subjects list - tabs */}
+    {sessions.length > 0 && (
+      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        {sessions.map(s => {
+          const isActive = selected?.id === s.id;
+          return (
+            <button key={s.id} onClick={()=>setSelected(s)} style={{
+              padding:"10px 16px", borderRadius:10, border:`1px solid ${isActive ? s.color || "var(--accent)" : "var(--border)"}`,
+              background: isActive ? `${s.color || "var(--accent)"}20` : "var(--card)",
+              color: "var(--text)", fontSize:13, fontWeight:isActive?700:500, cursor:"pointer",
+              display:"flex", alignItems:"center", gap:8, transition:"all 0.15s"
+            }}>
+              <span style={{ fontSize:18 }}>{s.emoji || "📚"}</span>
+              <span>{s.label || s.subject}</span>
+              {s.today_done && <span style={{ fontSize:11, color:"#10b981" }}>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    )}
+
+    {sessions.length === 0 && (
+      <div style={{ background:"var(--card)", borderRadius:14, padding:40, border:"1px dashed var(--border)", textAlign:"center" }}>
+        <div style={{ fontSize:42, marginBottom:10 }}>📚</div>
+        <div style={{ fontSize:15, color:"var(--text)", fontWeight:700, marginBottom:6 }}>No subjects yet</div>
+        <p style={{ fontSize:13, color:"var(--textDim)", margin:"0 0 16px" }}>Add a study subject to start tracking your progress</p>
+        <Btn onClick={()=>setAddModal(true)}><Icons.Plus /> Add Your First Subject</Btn>
+      </div>
+    )}
+
+    {/* Selected subject detail panel */}
+    {selected && (() => {
+      const st = stats(selected);
+      const subjColor = selected.color || "var(--accent)";
+      return (
+        <div style={{ background:"var(--card)", borderRadius:14, padding:22, border:"1px solid var(--border)", marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+              <div style={{ fontSize:42 }}>{selected.emoji || "📚"}</div>
+              <div>
+                <h3 style={{ fontSize:18, fontWeight:800, color:"var(--text)", margin:"0 0 2px" }}>{selected.label || selected.subject}</h3>
+                <div style={{ fontSize:12, color:"var(--textDim)" }}>{selected.description || "—"}</div>
+              </div>
+            </div>
+            <DelBtn onClick={()=>handleDeleteSubject(selected)} />
+          </div>
+
+          {/* Stats grid */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10, marginBottom:18 }}>
+            <div style={{ background:"var(--bg)", borderRadius:10, padding:"12px 14px", border:"1px solid var(--border)" }}>
+              <div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase", letterSpacing:0.5 }}>Streak</div>
+              <div style={{ fontSize:22, fontWeight:800, color:subjColor }}>{selected.streak || 0}</div>
+              <div style={{ fontSize:10, color:"var(--textDim)" }}>days</div>
+            </div>
+            <div style={{ background:"var(--bg)", borderRadius:10, padding:"12px 14px", border:"1px solid var(--border)" }}>
+              <div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase", letterSpacing:0.5 }}>Total</div>
+              <div style={{ fontSize:22, fontWeight:800, color:"var(--text)" }}>{st.total}</div>
+              <div style={{ fontSize:10, color:"var(--textDim)" }}>sessions</div>
+            </div>
+            <div style={{ background:"var(--bg)", borderRadius:10, padding:"12px 14px", border:"1px solid var(--border)" }}>
+              <div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase", letterSpacing:0.5 }}>Last 7 days</div>
+              <div style={{ fontSize:22, fontWeight:800, color:"var(--text)" }}>{st.last7}<span style={{ fontSize:13, color:"var(--textDim)", fontWeight:500 }}>/7</span></div>
+              <div style={{ fontSize:10, color:"var(--textDim)" }}>{Math.round((st.last7/7)*100)}% consistency</div>
+            </div>
+            <div style={{ background:"var(--bg)", borderRadius:10, padding:"12px 14px", border:"1px solid var(--border)" }}>
+              <div style={{ fontSize:9, color:"var(--textDim)", fontWeight:600, textTransform:"uppercase", letterSpacing:0.5 }}>XP earned</div>
+              <div style={{ fontSize:22, fontWeight:800, color:subjColor }}>{st.totalXp}</div>
+              <div style={{ fontSize:10, color:"var(--textDim)" }}>+50 per check-in</div>
+            </div>
+          </div>
+
+          {/* This week */}
+          <div style={{ marginBottom:18 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:"var(--textDim)", marginBottom:8 }}>This Week</div>
+            <StreakDots weekLog={selected.week_log} />
+          </div>
+
+          {/* Heatmap */}
+          <div style={{ marginBottom:18 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <div style={{ fontSize:12, fontWeight:600, color:"var(--textDim)" }}>Last 70 Days</div>
+              <div style={{ fontSize:11, color:"var(--textDim)" }}>{st.last30}/30 in last month</div>
+            </div>
+            <Heatmap history={selected.checkin_history || []} color={subjColor} />
+          </div>
+
+          {/* Check in button */}
+          <button disabled={selected.today_done} onClick={()=>checkin(selected)} style={{
+            width:"100%", padding:"12px 0", borderRadius:10, border:"none",
+            background: selected.today_done ? "var(--cardHover)" : subjColor,
+            color: selected.today_done ? "var(--textDim)" : "#fff",
+            fontSize:14, fontWeight:700, cursor:selected.today_done?"default":"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:6
+          }}>{selected.today_done ? "✓ Completed Today!" : <><Icons.Zap /> Check In (+50 XP)</>}</button>
+        </div>
+      );
+    })()}
+
+    {/* Milestones */}
+    <div style={{ background:"var(--card)", borderRadius:14, padding:18, border:"1px solid var(--border)" }}>
+      <h3 style={{ fontSize:13, fontWeight:700, color:"var(--text)", marginTop:0, marginBottom:12 }}>🏆 Milestones</h3>
+      <div style={{ display:"flex", gap:8 }}>
+        {milestones.map((m, i) => {
+          const a = totalXP >= m.xp;
+          return (
+            <div key={i} style={{ flex:1, textAlign:"center", padding:"10px 8px", borderRadius:10, background:a?"var(--accent)":"var(--bg)", border:"1px solid var(--border)", opacity:a?1:0.5 }}>
+              <div style={{ fontSize:22, marginBottom:2 }}>{m.icon}</div>
+              <div style={{ fontSize:11, fontWeight:700, color:a?"#0a0f0d":"var(--textDim)" }}>{m.label}</div>
+              <div style={{ fontSize:9, color:a?"rgba(10,15,13,0.7)":"var(--textDim)", marginTop:1 }}>{m.xp} XP</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Add subject modal */}
+    <Modal open={addModal} onClose={()=>setAddModal(false)} title="Add Study Subject">
+      <Input label="Subject Name" value={newSubj.label} onChange={e=>setNewSubj({...newSubj, label:e.target.value})} placeholder="e.g. Coding, Spanish, Math" />
+      <Input label="Description (optional)" value={newSubj.description} onChange={e=>setNewSubj({...newSubj, description:e.target.value})} placeholder="What will you study?" />
+      <div style={{ marginBottom:14 }}>
+        <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--textDim)", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Icon</label>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {["📚","💻","🎨","🎵","🏃","🧘","🔬","📐","🇯🇵","🇪🇸","🇫🇷","🇩🇪","🎓","✍️","📖","🧠"].map(e => (
+            <button key={e} onClick={()=>setNewSubj({...newSubj, emoji:e})} style={{ fontSize:24, padding:6, border:newSubj.emoji===e?"2px solid var(--accent)":"2px solid transparent", borderRadius:8, background:newSubj.emoji===e?"var(--cardHover)":"transparent", cursor:"pointer" }}>{e}</button>
+          ))}
+        </div>
+      </div>
+      <Input label="Color" type="color" value={newSubj.color} onChange={e=>setNewSubj({...newSubj, color:e.target.value})} />
+      <Btn onClick={handleAddSubject} style={{ width:"100%", justifyContent:"center", marginTop:8 }}>Add Subject</Btn>
+    </Modal>
+
+    <ConfirmDialog open={c.open} title={c.title} message={c.msg} onConfirm={c.exec} onCancel={c.cancel} />
   </div>);
 }
 
