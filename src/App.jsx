@@ -21,6 +21,7 @@ const Icons = {
   Reset: () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clipRule="evenodd"/></svg>,
   User: () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd"/></svg>,
   Camera: () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clipRule="evenodd"/></svg>,
+  Menu: () => <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path fillRule="evenodd" d="M3 6.75A.75.75 0 0 1 3.75 6h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6.75ZM3 12a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd"/></svg>,
 };
 
 // ─── XP Calculator: ¥100 = 10 XP needed ───
@@ -848,6 +849,7 @@ export default function App() {
   const [user, setUser] = useState(null); const [loading, setLoading] = useState(true); const [page, setPage] = useState("dashboard");
   const [data, setData] = useState({ expenses:[], todos:[], subscriptions:[], journal:[], books:[], studySessions:[] });
   const [profile, setProfile] = useState({ monthly_budget:100000, xp:0, level:1, streak:0 });
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Load from cache instantly when user is known
   useEffect(() => {
@@ -913,6 +915,7 @@ export default function App() {
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <style>{`
       @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       * { box-sizing: border-box; }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: var(--bg); }
@@ -926,14 +929,17 @@ export default function App() {
       .nav-item svg { transition: transform 0.15s ease; }
       .nav-item.active { box-shadow: 0 4px 12px rgba(52,211,153,0.25); }
       .mobile-nav-item { transition: all 0.15s ease; }
-      .mobile-nav-item:active { transform: scale(0.92); }
+      .mobile-nav-item:active { transform: scale(0.95); background: var(--cardHover) !important; }
       @media (max-width: 768px) {
         .desktop-sidebar { display: none !important; }
-        .main-content { padding: 16px 14px 90px 14px !important; max-width: 100% !important; }
-        .mobile-bottom-nav { display: flex !important; }
+        .main-content { padding: 70px 16px 24px 16px !important; max-width: 100% !important; }
+        .mobile-header { display: flex !important; }
+        .mobile-drawer-overlay { display: block; }
       }
       @media (min-width: 769px) {
-        .mobile-bottom-nav { display: none !important; }
+        .mobile-header { display: none !important; }
+        .mobile-drawer { display: none !important; }
+        .mobile-drawer-overlay { display: none !important; }
       }
     `}</style>
 
@@ -958,8 +964,50 @@ export default function App() {
 
     <main className="main-content" style={{ flex:1, padding:"28px 36px", minHeight:"100vh" }}>{pages[page]}</main>
 
-    <nav className="mobile-bottom-nav" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, background:"var(--card)", borderTop:"1px solid var(--border)", padding:"6px 2px 10px", zIndex:100, justifyContent:"space-around", alignItems:"center", backdropFilter:"blur(20px)" }}>
-      {navItems.map(i=>{const a=page===i.key; const I=i.icon; return (<button key={i.key} onClick={()=>setPage(i.key)} className="mobile-nav-item" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"4px 6px", borderRadius:10, border:"none", background:"transparent", color:a?"var(--accent)":"var(--textDim)", fontSize:9, fontWeight:a?700:500, cursor:"pointer", minWidth:40 }}><I />{i.label}</button>);})}
+    {/* Mobile Header */}
+    <header className="mobile-header" style={{ display:"none", position:"fixed", top:0, left:0, right:0, height:56, background:"var(--card)", borderBottom:"1px solid var(--border)", padding:"0 16px", alignItems:"center", justifyContent:"space-between", zIndex:50, backdropFilter:"blur(20px)" }}>
+      <button onClick={()=>setDrawerOpen(true)} style={{ background:"none", border:"none", color:"var(--text)", cursor:"pointer", padding:8, display:"flex", alignItems:"center" }}><Icons.Menu /></button>
+      <div onClick={()=>setPage("dashboard")} style={{ fontSize:18, fontWeight:900, color:"var(--accent)", cursor:"pointer" }}>△ Zenith</div>
+      <div onClick={()=>setPage("profile")} style={{ cursor:"pointer" }}>
+        {profile.avatar_url ? (
+          <img src={profile.avatar_url} alt="avatar" style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover" }} />
+        ) : (
+          <div style={{ width:32, height:32, borderRadius:"50%", background:"var(--accent)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"#0a0f0d" }}>{userName[0].toUpperCase()}</div>
+        )}
+      </div>
+    </header>
+
+    {/* Drawer overlay */}
+    {drawerOpen && <div className="mobile-drawer-overlay" onClick={()=>setDrawerOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", backdropFilter:"blur(4px)", zIndex:80, animation:"fadeIn 0.2s ease" }} />}
+
+    {/* Mobile drawer */}
+    <nav className="mobile-drawer" style={{ position:"fixed", top:0, left:0, bottom:0, width:"80%", maxWidth:280, background:"var(--card)", borderRight:"1px solid var(--border)", padding:"24px 14px", display:drawerOpen?"flex":"none", flexDirection:"column", zIndex:90, transform:drawerOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.25s ease", overflowY:"auto" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+        <div onClick={()=>{setPage("dashboard"); setDrawerOpen(false);}} style={{ cursor:"pointer" }}>
+          <div style={{ fontSize:20, fontWeight:900, color:"var(--accent)", letterSpacing:-0.5 }}>△ Zenith</div>
+          <div style={{ fontSize:11, color:"var(--textDim)", marginTop:2 }}>Organize Everything</div>
+        </div>
+        <button onClick={()=>setDrawerOpen(false)} style={{ background:"none", border:"none", color:"var(--textDim)", cursor:"pointer", padding:4 }}><Icons.X /></button>
+      </div>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:4, flex:1 }}>
+        {navItems.map(i=>{const a=page===i.key; const I=i.icon; return (
+          <button key={i.key} onClick={()=>{setPage(i.key); setDrawerOpen(false);}} className="mobile-nav-item" style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 16px", borderRadius:12, border:"none", background:a?"var(--accent)":"transparent", color:a?"#0a0f0d":"var(--text)", fontSize:15, fontWeight:a?700:500, cursor:"pointer", textAlign:"left", width:"100%" }}>
+            <I />{i.label}
+          </button>
+        );})}
+      </div>
+
+      <div style={{ borderTop:"1px solid var(--border)", paddingTop:16, marginTop:8 }}>
+        <div onClick={()=>{setPage("study"); setDrawerOpen(false);}} style={{ background:"var(--bg)", borderRadius:14, padding:"14px 16px", border:"1px solid var(--border)", cursor:"pointer" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+            <Icons.Fire />
+            <span style={{ fontSize:14, fontWeight:800, color:"var(--accent)" }}>Lv.{profile.level||1}</span>
+            <span style={{ fontSize:12, color:"var(--textDim)" }}>{profile.xp||0} XP</span>
+          </div>
+          <ProgressBar value={(profile.xp||0)%300||300} max={300} height={5} />
+        </div>
+      </div>
     </nav>
   </div>);
 }
